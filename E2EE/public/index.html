@@ -370,7 +370,7 @@
             state.rsaKeyPair = await cryptoUtils.generateRsaKeyPair();
             updateConnectionStatus('connecting', 'Conectando...');
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            ws = new WebSocket(`${protocol}//localhost:18080/ws`);
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
 
             ws.onopen = () => { updateConnectionStatus('connecting', 'Registrando...'); };
             ws.onclose = () => {
@@ -451,8 +451,26 @@
             dom.soundToggleBtn.innerHTML = state.isSoundMuted
                 ? '<i class="fa-solid fa-volume-xmark"></i>'
                 : '<i class="fa-solid fa-volume-high"></i>';
+            dom.soundToggleBtn.title = state.isSoundMuted ? 'Activar sonido' : 'Silenciar sonido';
         };
-        dom.soundToggleBtn.addEventListener('click', () => { state.isSoundMuted = !state.isSoundMuted; updateSoundButton(); });
+        dom.soundToggleBtn.addEventListener('click', () => {
+            state.isSoundMuted = !state.isSoundMuted;
+            updateSoundButton();
+            // Si el usuario acaba de activar el sonido, intentamos "desbloquear" el audio
+            // para cumplir con las políticas de reproducción automática del navegador.
+            if (!state.isSoundMuted) {
+                const sound = dom.receiveSound;
+                const promise = sound.play();
+                if (promise !== undefined) {
+                    promise.then(() => {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }).catch(error => {
+                        console.log("Interacción de audio registrada. El sonido se reproducirá en eventos futuros.");
+                    });
+                }
+            }
+        });
 
         dom.powerToggleBtn.addEventListener('click', () => {
             if (ws && ws.readyState === WebSocket.OPEN) {

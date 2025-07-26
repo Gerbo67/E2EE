@@ -1,3 +1,12 @@
+/**
+ * @file E2EE.cpp
+ * @brief Punto de entrada principal del servidor de chat cifrado de extremo a extremo.
+ *
+ * Este archivo contiene la configuración del servidor web usando el framework Crow,
+ * incluyendo las rutas para servir archivos estáticos y manejar conexiones WebSocket
+ * para el chat en tiempo real con cifrado E2E.
+ */
+
 #define _CRT_SECURE_NO_WARNINGS
 #define CROW_MAIN
 
@@ -7,6 +16,9 @@
 #include <iostream>
 #include <filesystem>
 
+/**
+ * @summary Función principal que configura y ejecuta el servidor de chat cifrado.
+ */
 int main() {
     std::cout << "Directorio de trabajo actual: " << std::filesystem::current_path() << std::endl;
     

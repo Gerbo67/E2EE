@@ -1,6 +1,9 @@
 ﻿#include "MessageHandler.h"
 #include "crow.h"
 
+/**
+ * @summary Procesa mensajes entrantes de WebSocket y delega las acciones según el tipo.
+ */
 void MessageHandler::process(crow::websocket::connection& from_conn, const std::string& data) {
     auto& userManager = UserManager::getInstance();
     auto sender_user = userManager.findUserByConnection(&from_conn);
@@ -67,14 +70,18 @@ void MessageHandler::process(crow::websocket::connection& from_conn, const std::
     }
 }
 
-// --- Implementaciones de los constructores (con los nuevos métodos) ---
-
+/**
+ * @summary Construye un mensaje JSON solicitando la clave pública del cliente.
+ */
 std::string MessageHandler::buildKeyRequestMessage() {
     crow::json::wvalue msg;
     msg["type"] = "request_key";
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje de bienvenida con el nombre de usuario asignado.
+ */
 std::string MessageHandler::buildWelcomeMessage(const std::string& username) {
     crow::json::wvalue msg;
     msg["type"] = "welcome";
@@ -82,6 +89,9 @@ std::string MessageHandler::buildWelcomeMessage(const std::string& username) {
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje con la lista completa de usuarios conectados y sus claves.
+ */
 std::string MessageHandler::buildUserListWithKeysMessage(const std::vector<UserManager::UserInfo>& users) {
     crow::json::wvalue msg;
     msg["type"] = "user_list";
@@ -97,6 +107,9 @@ std::string MessageHandler::buildUserListWithKeysMessage(const std::vector<UserM
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje de notificación de cambio de estado de usuario.
+ */
 std::string MessageHandler::buildUserStatusUpdate(const std::string& username, const std::string& publicKey, const std::string& status) {
     crow::json::wvalue msg;
     msg["type"] = "user_status";
@@ -106,6 +119,9 @@ std::string MessageHandler::buildUserStatusUpdate(const std::string& username, c
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje cifrado privado reenviado desde el remitente al destinatario.
+ */
 std::string MessageHandler::buildForwardedEncryptedMessage(const std::string& sender, const crow::json::rvalue& original_message) {
     crow::json::wvalue msg;
     msg["type"] = "private_encrypted";
@@ -116,6 +132,9 @@ std::string MessageHandler::buildForwardedEncryptedMessage(const std::string& se
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje cifrado público para difusión a múltiples usuarios.
+ */
 std::string MessageHandler::buildForwardedPublicEncryptedMessage(const std::string& sender, const crow::json::rvalue& original_message) {
     crow::json::wvalue msg;
     msg["type"] = "public_encrypted";
@@ -132,6 +151,9 @@ std::string MessageHandler::buildForwardedPublicEncryptedMessage(const std::stri
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje de notificación de que un usuario está escribiendo.
+ */
 std::string MessageHandler::buildUserTypingMessage(const std::string& sender, const std::string& recipient) {
     crow::json::wvalue msg;
     msg["type"] = "user_typing";
@@ -140,6 +162,9 @@ std::string MessageHandler::buildUserTypingMessage(const std::string& sender, co
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje de notificación de que un usuario dejó de escribir.
+ */
 std::string MessageHandler::buildUserStoppedTypingMessage(const std::string& sender, const std::string& recipient) {
     crow::json::wvalue msg;
     msg["type"] = "user_stopped_typing";
@@ -148,6 +173,9 @@ std::string MessageHandler::buildUserStoppedTypingMessage(const std::string& sen
     return msg.dump();
 }
 
+/**
+ * @summary Construye un mensaje de error con descripción del problema ocurrido.
+ */
 std::string MessageHandler::buildErrorMessage(const std::string& error_text) {
     crow::json::wvalue msg;
     msg["type"] = "error";

@@ -1,7 +1,7 @@
 # =========================================================================
 # FASE 1: CONSTRUCTOR (BUILDER)
 # =========================================================================
-FROM ubuntu:latest AS builder
+FROM debian:bookworm AS builder
 
 # Instalar dependencias de compilación: g++, make y las librerías de OpenSSL
 RUN apt-get update && \
@@ -30,11 +30,11 @@ COPY public/ ./public/
 # =========================================================================
 # FASE 2: IMAGEN FINAL
 # =========================================================================
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 # Instalar solo las dependencias de EJECUCIÓN (no las de desarrollo)
 RUN apt-get update && \
-    apt-get install -y libssl1.1 && \
+    apt-get install -y libssl3 && \
     rm -rf /var/lib/apt/lists/*
 
 # Establecer el directorio de trabajo
