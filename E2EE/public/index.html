@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeeplySpace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            position: absolute; bottom: 0; right: 0; border: 2px solid #1f2937;
+        }
+        .status-online { background-color: #10b981; box-shadow: 0 0 4px rgba(16, 185, 129, 0.5); }
+        .status-offline { background-color: #6b7280; }
+        .active-chat { background-color: #374151; }
+        .typing-indicator span {
+            display: inline-block; width: 6px; height: 6px;
+            border-radius: 50%; background-color: #9ca3af;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: -1.0s; }
+        .typing-indicator span:nth-child(3) { animation-delay: -0.8s; }
+        @keyframes typing-bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+
+        /* Contenedor de mensajes con scroll inverso */
+        #messages {
+            display: flex;
+            flex-direction: column-reverse;
+            overflow-y: auto;
+        }
+
+        /* Estilos para agrupación de mensajes */
+        .message-group {
+            margin-top: 1rem; /* Margen superior para separar grupos en orden inverso */
+            display: flex;
+            align-items: flex-start; gap: 0.75rem;
+            flex-shrink: 0;
+        }
+        .message-group-content {
+            display: flex; flex-direction: column; flex: 1;
+            max-width: 65%;
+        }
+        .message-group-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            flex-shrink: 0; margin-top: 0; /* Alineado con el header */
+        }
+        .message-group-header {
+            display: flex; align-items: baseline;
+            gap: 0.5rem; width: 100%;
+            margin-bottom: 0.25rem;
+        }
+        .message-group-name { font-weight: 600; font-size: 0.875rem; color: #e5e7eb; }
+        .message-group-time { font-size: 0.75rem; color: #9ca3af; }
+
+        .message-item { display: flex; flex-direction: column; margin-bottom: 0.25rem; }
+        .message-bubble {
+            padding: 0.625rem 1rem;
+            border-radius: 0.75rem; /* Radio base */
+            max-width: 100%; word-wrap: break-word;
+        }
+        /* Burbuja con cola en la esquina SUPERIOR */
+        .message-bubble.first-bubble-sent { border-top-right-radius: 0.25rem; }
+        .message-bubble.first-bubble-received { border-top-left-radius: 0.25rem; }
+
+        /* Mensajes Enviados (DERECHA) */
+        .message-group-sent { flex-direction: row-reverse; }
+        .message-group-sent .message-group-content,
+        .message-group-sent .message-item,
+        .message-group-sent .message-group-header { align-items: flex-end; }
+        .message-group-sent .message-group-header { justify-content: flex-end; }
+        .message-bubble-sent { background-color: #2563eb; color: white; }
+
+        /* Mensajes Recibidos (IZQUIERDA) */
+        .message-group-received .message-group-content,
+        .message-group-received .message-item,
+        .message-group-received .message-group-header { align-items: flex-start; }
+        .message-bubble-received { color: white; background-color: #374151; }
+
+        /* Avatares y Status */
+        .user-avatar-small { width: 28px; height: 28px; }
+        .chat-title-avatar { width: 32px; height: 32px; }
+        .welcome-avatar { width: 32px; height: 32px; }
+
+        /* Píldora de Estado */
+        .status-pill {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .status-pill.online { background-color: #10b981; color: #ffffff; }
+        .status-pill.offline { background-color: #ef4444; color: #ffffff; }
+        .status-pill.connecting { background-color: #f59e0b; color: #1f2937; }
+
+
+        #toast-container { position: fixed; top: 1rem; right: 1rem; z-index: 50; display: flex; flex-direction: column; gap: 0.5rem; }
+        .toast {
+            display: flex; flex-direction: column;
+            background-color: #1f2937; color: #e5e7eb;
+            padding: 0.75rem 1rem; border-radius: 0.5rem; border: 1px solid #4b5563;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transform: translateX(120%);
+            animation: toast-in 0.5s forwards;
+            width: 20vw;
+            max-width: 320px;
+            cursor: pointer;
+        }
+        .toast-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.25rem; }
+        .toast-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .toast-time { font-size: 0.75rem; color: #9ca3af; flex-shrink: 0; margin-left: 0.5rem; }
+        .toast-body {
+            font-size: 0.875rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: break-word;
+        }
+        @keyframes toast-in { to { transform: translateX(0); } }
+        .toast.fade-out { animation: toast-out 0.5s forwards; }
+        @keyframes toast-out { to { transform: translateX(120%); } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+<div class="flex h-screen">
+    <div id="rooms-panel" class="w-72 bg-gray-800 flex flex-col border-r border-gray-700">
+        <header class="p-4 border-b border-gray-700 flex justify-between items-center">
+            <h2 class="font-bold text-lg">Chat Seguro</h2>
+            <div id="header-buttons" class="flex space-x-2">
+                <button id="sound-toggle-btn" class="p-1 rounded-full hover:bg-gray-700 w-8 h-8 flex items-center justify-center"></button>
+                <button id="power-toggle-btn" title="Conectar/Desconectar" class="p-1 rounded-full w-8 h-8 flex items-center justify-center transition-colors duration-300">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </header>
+        <nav class="flex-1 p-2 space-y-1 overflow-y-auto">
+            <div id="general-chat-room" class="flex items-center justify-between p-3 rounded-md cursor-pointer hover:bg-gray-700">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg">#</div>
+                    <span class="font-semibold">Sala General</span>
+                </div>
+                <span id="general-unread" class="bg-red-600 text-xs font-bold rounded-full px-2 py-0.5 hidden"></span>
+            </div>
+            <div class="px-2 pt-4 pb-2"><h3 class="text-sm font-semibold text-gray-400">Mensajes Directos</h3></div>
+            <div id="user-list-container" class="space-y-1"></div>
+        </nav>
+        <footer id="welcome-banner" class="p-4 border-t border-gray-700 text-center flex items-center justify-center space-x-3">
+            <div id="my-avatar-container"></div>
+            <span id="my-username-text">Conectando...</span>
+        </footer>
+    </div>
+
+    <div id="chat-panel" class="flex-1 flex flex-col">
+        <header class="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-800">
+            <h1 id="chat-title" class="text-xl font-bold flex items-center space-x-3"></h1>
+            <span id="connection-status" class="status-pill"></span>
+        </header>
+        <main id="messages" class="flex-1 p-4 bg-gray-900"></main>
+        <div id="typing-indicator-container" class="h-6 px-4 text-sm text-gray-400 italic"></div>
+        <footer class="p-4 bg-gray-800">
+            <form id="message-form" class="flex space-x-2">
+                <input type="text" id="message-input" class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Escribe un mensaje..." disabled>
+                <button type="submit" id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center w-24 transition-all duration-200 ease-in-out disabled:bg-gray-500 disabled:cursor-not-allowed" disabled>
+                    <span class="mr-2">Enviar</span>
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </footer>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden"><div class="bg-gray-800 rounded-lg p-6 shadow-xl border border-gray-700"><h3 class="text-lg font-bold mb-4">¿Seguro que quieres desconectar?</h3><div class="flex justify-end space-x-4"><button id="modal-cancel-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md">Cancelar</button><button id="modal-confirm-btn" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-md">Desconectar</button></div></div></div>
+
+<audio id="send-sound" src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg" preload="auto"></audio>
+<audio id="receive-sound" src="https://actions.google.com/sounds/v1/notifications/positive_notification.ogg" preload="auto"></audio>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const cryptoUtils = {
+            generateRsaKeyPair: () => window.crypto.subtle.generateKey({ name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["encrypt", "decrypt"]),
+            exportPublicKeyAsPem: async (key) => { const exported = await window.crypto.subtle.exportKey("spki", key); const exportedAsString = String.fromCharCode.apply(null, new Uint8Array(exported)); const exportedAsBase64 = window.btoa(exportedAsString); return `-----BEGIN PUBLIC KEY-----\n${exportedAsBase64}\n-----END PUBLIC KEY-----` },
+            importPublicKeyFromPem: async (pem) => { const pemHeader = "-----BEGIN PUBLIC KEY-----"; const pemFooter = "-----END PUBLIC KEY-----"; const pemContents = pem.substring(pemHeader.length, pem.length - pemFooter.length - 1).replace(/\s/g, ""); const binaryDer = window.atob(pemContents); const binaryDerArr = new Uint8Array(binaryDer.length); for (let i = 0; i < binaryDer.length; i++) { binaryDerArr[i] = binaryDer.charCodeAt(i); } return window.crypto.subtle.importKey("spki", binaryDerArr, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]) },
+            generateAesKey: () => window.crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]),
+            encryptAesKey: async (aesKey, rsaPublicKey) => { const exportedAes = await window.crypto.subtle.exportKey("raw", aesKey); return window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, rsaPublicKey, exportedAes) },
+            encryptMessage: async (message, aesKey) => { const iv = window.crypto.getRandomValues(new Uint8Array(12)); const encodedMessage = new TextEncoder().encode(message); const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, aesKey, encodedMessage); return { iv, payload: encrypted } },
+            decryptAesKey: async (encryptedKey, rsaPrivateKey) => { const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, rsaPrivateKey, encryptedKey); return window.crypto.subtle.importKey("raw", decrypted, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]) },
+            decryptMessage: async (encryptedPayload, iv, aesKey) => { const decrypted = await window.crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, aesKey, encryptedPayload); return new TextDecoder().decode(decrypted) },
+            arrayBufferToBase64: (buffer) => { let binary = ""; const bytes = new Uint8Array(buffer); for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); } return window.btoa(binary) },
+            base64ToArrayBuffer: (base64) => { const binary_string = window.atob(base64); const len = binary_string.length; const bytes = new Uint8Array(len); for (let i = 0; i < len; i++) { bytes[i] = binary_string.charCodeAt(i); } return bytes.buffer }
+        };
+
+        const dom = { userListContainer: document.getElementById('user-list-container'), welcomeBanner: document.getElementById('welcome-banner'), chatTitle: document.getElementById('chat-title'), connectionStatus: document.getElementById('connection-status'), messagesDiv: document.getElementById('messages'), messageForm: document.getElementById('message-form'), messageInput: document.getElementById('message-input'), sendButton: document.getElementById('send-button'), generalChatRoom: document.getElementById('general-chat-room'), typingIndicator: document.getElementById('typing-indicator-container'), soundToggleBtn: document.getElementById('sound-toggle-btn'), powerToggleBtn: document.getElementById('power-toggle-btn'), sendSound: document.getElementById('send-sound'), receiveSound: document.getElementById('receive-sound'), toastContainer: document.getElementById('toast-container'), myAvatarContainer: document.getElementById('my-avatar-container'), myUsernameText: document.getElementById('my-username-text') };
+
+        const avatarColors = ['b6e3f4', 'c0aede', 'd1d4f9', 'ffd5dc', 'ffdfbf', 'F2D4CC', 'E6E6E6'];
+        const getAvatarUrl = (seed) => `https://api.dicebear.com/9.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${avatarColors.join(',')}`;
+
+        const generateUserColor = (username) => { let hash = 0; for (let i = 0; i < username.length; i++) { hash = username.charCodeAt(i) + ((hash << 5) - hash); } const darkColors = ['#1e40af', '#7c2d12', '#166534', '#92400e', '#6d28d9', '#1e3a8a', '#be123c', '#059669', '#dc2626', '#9333ea', '#0891b2', '#c2410c', '#15803d', '#b45309', '#7c3aed', '#0284c7', '#db2777', '#047857', '#ea580c']; return darkColors[Math.abs(hash) % darkColors.length]; };
+
+        const formatTime = (date) => date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
+
+        const groupMessages = (messages) => {
+            const groups = [];
+            if (!messages || messages.length === 0) return groups;
+
+            let currentGroup = null;
+            let lastTimestamp = null;
+
+            messages.forEach(msg => {
+                if (msg.type === 'status') {
+                    if (currentGroup) groups.push(currentGroup);
+                    groups.push({ type: 'status', message: msg });
+                    currentGroup = null;
+                    return;
+                }
+                const timeDifference = lastTimestamp ? (msg.timestamp - lastTimestamp) / (1000 * 60) : 0;
+                const shouldStartNewGroup = !currentGroup || currentGroup.sender !== msg.sender || currentGroup.messages.length >= 4 || timeDifference > 5;
+
+                if (shouldStartNewGroup) {
+                    if (currentGroup) groups.push(currentGroup);
+                    currentGroup = { type: 'user', sender: msg.sender, avatarUrl: msg.avatarUrl, userColor: generateUserColor(msg.sender), timestamp: msg.timestamp, messages: [] };
+                }
+                currentGroup.messages.push({ content: msg.content });
+                lastTimestamp = msg.timestamp;
+            });
+            if (currentGroup) groups.push(currentGroup);
+            return groups;
+        };
+
+        let state = {};
+        const resetState = () => { state = { myUsername: "", activeChat: "Sala General", rsaKeyPair: null, chatStore: new Map([["Sala General", { type: "public", messages: [], unread: 0, typingUsers: new Set(), draft: "" }]]), isSoundMuted: false, typingTimeout: null, isTyping: false }; };
+
+        const playSound = (type) => { if (state.isSoundMuted) return; const sound = type === 'send' ? dom.sendSound : dom.receiveSound; sound.currentTime = 0; sound.play().catch(e => console.log("Error al reproducir sonido:", e)); };
+
+        const showToast = (title, body, chatName, timestamp) => {
+            if (dom.toastContainer.children.length >= 3) {
+                const oldestToast = dom.toastContainer.lastChild;
+                oldestToast.classList.add('fade-out');
+                setTimeout(() => oldestToast.remove(), 500);
+            }
+
+            const toast = document.createElement('div');
+            toast.className = "toast";
+
+            let truncatedBody = body;
+            if (body.length > 30) {
+                truncatedBody = body.substring(0, 30) + "...";
+            }
+
+            toast.innerHTML = `
+                <div class="toast-header">
+                    <span class="toast-title">${title}</span>
+                    <span class="toast-time">${formatTime(timestamp)}</span>
+                </div>
+                <p class="toast-body">${truncatedBody}</p>
+            `;
+
+            toast.addEventListener('click', () => {
+                switchChat(chatName);
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            });
+
+            dom.toastContainer.prepend(toast);
+            playSound('receive');
+
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            }, 8000);
+        };
+
+        const updateUI = () => {
+            dom.generalChatRoom.classList.toggle("active-chat", state.activeChat === "Sala General");
+            const generalUnread = document.getElementById("general-unread");
+            const generalData = state.chatStore.get("Sala General");
+            if (generalData && generalData.unread > 0) { generalUnread.textContent = generalData.unread; generalUnread.classList.remove("hidden"); } else { generalUnread.classList.add("hidden"); }
+
+            dom.userListContainer.innerHTML = "";
+            const users = Array.from(state.chatStore.values()).filter(u => u.type === "private" && u.username !== state.myUsername).sort((a, b) => a.username.localeCompare(b.username));
+            users.forEach(user => {
+                const userEl = document.createElement('div');
+                userEl.className = `flex items-center justify-between p-3 rounded-md cursor-pointer hover:bg-gray-700 ${state.activeChat === user.username ? "active-chat" : ""}`;
+                userEl.dataset.username = user.username;
+                const statusClass = user.status === 'online' ? 'status-online' : 'status-offline';
+                const userInfoHtml = `<div class="flex items-center space-x-3"><div class="relative"><img src="${user.avatarUrl}" class="user-avatar-small rounded-full bg-gray-700" alt="${user.username}"/><span class="status-dot ${statusClass}"></span></div><span class="font-medium">${user.username}</span></div>`;
+                const unreadBadge = user.unread > 0 ? `<span class="bg-red-600 text-xs font-bold rounded-full px-2 py-0.5">${user.unread}</span>` : "";
+                userEl.innerHTML = `${userInfoHtml}<div class="flex items-center space-x-2">${unreadBadge}</div>`;
+                userEl.addEventListener('click', (e) => { switchChat(user.username); });
+                dom.userListContainer.appendChild(userEl);
+            });
+
+            const currentChat = state.chatStore.get(state.activeChat);
+            if (currentChat) {
+                if (state.activeChat === "Sala General") {
+                    dom.chatTitle.innerHTML = `<div class="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-lg">#</div><span>Sala General</span>`;
+                } else {
+                    dom.chatTitle.innerHTML = `<img src="${currentChat.avatarUrl}" class="chat-title-avatar rounded-full bg-gray-700"/><span>@ ${state.activeChat}</span>`;
+                }
+                dom.messageInput.disabled = false; dom.sendButton.disabled = false;
+
+                let allMessagesHtml = '';
+                const messageGroups = groupMessages(currentChat.messages);
+
+                // Bucle FOR INVERSO para renderizar mensajes del más nuevo al más viejo en el DOM
+                for (let i = messageGroups.length - 1; i >= 0; i--) {
+                    const group = messageGroups[i];
+                    if (group.type === 'status') {
+                        allMessagesHtml += `<p class="text-center text-sm text-gray-500 my-2">${group.message.content}</p>`;
+                    } else {
+                        const isSent = group.sender === state.myUsername;
+                        const groupClass = isSent ? 'message-group-sent' : 'message-group-received';
+                        const bubbleClassBase = isSent ? 'message-bubble-sent' : 'message-bubble-received';
+
+                        let bubblesHtml = '';
+                        group.messages.forEach((msg, index) => {
+                            const isFirstBubble = index === 0;
+                            let bubbleClass = `message-bubble ${bubbleClassBase}`;
+                            if (isFirstBubble) {
+                                bubbleClass += isSent ? ' first-bubble-sent' : ' first-bubble-received';
+                            }
+                            let bubbleStyle = '';
+                            if (!isSent && state.activeChat === 'Sala General') {
+                                bubbleStyle = `style="background-color: ${group.userColor};"`;
+                            }
+                            bubblesHtml += `<div class="message-item"><div class="${bubbleClass}" ${bubbleStyle}>${msg.content}</div></div>`;
+                        });
+
+                        const nameHtml = `<span class="message-group-name">${isSent ? 'Tú' : group.sender}</span>`;
+                        const timeHtml = `<span class="message-group-time">${formatTime(group.timestamp)}</span>`;
+                        const headerHtml = `<div class="message-group-header">${isSent ? timeHtml + nameHtml : nameHtml + timeHtml}</div>`;
+                        const avatarHtml = `<img src="${group.avatarUrl}" class="message-group-avatar" alt="${group.sender}"/>`;
+
+                        allMessagesHtml += `
+                            <div class="message-group ${groupClass}">
+                                ${avatarHtml}
+                                <div class="message-group-content">
+                                    ${headerHtml}
+                                    ${bubblesHtml}
+                                </div>
+                            </div>`;
+                    }
+                }
+
+                dom.messagesDiv.innerHTML = allMessagesHtml;
+
+            } else {
+                dom.messageInput.disabled = true; dom.sendButton.disabled = true;
+            }
+            updateTypingIndicator();
+        };
+
+        const updateTypingIndicator = () => { const chat = state.chatStore.get(state.activeChat); if (!chat || chat.typingUsers.size === 0) { dom.typingIndicator.innerHTML = ""; return; } const typers = Array.from(chat.typingUsers); let text = typers.length === 1 ? `${typers[0]} está escribiendo` : (typers.length === 2 ? `${typers[0]} y ${typers[1]} están escribiendo` : "Varios usuarios están escribiendo"); dom.typingIndicator.innerHTML = `<div class="flex items-center space-x-2"><span>${text}</span><div class="typing-indicator"><span></span><span></span><span></span></div></div>`; };
+
+        const switchChat = (username) => { if (state.activeChat === username) return; const oldChat = state.chatStore.get(state.activeChat); if (oldChat) { oldChat.draft = dom.messageInput.value; } if (state.isTyping) sendTypingStatus(false); state.activeChat = username; const newChat = state.chatStore.get(username); if (newChat) { newChat.unread = 0; dom.messageInput.value = newChat.draft || ""; } updateUI(); };
+
+        let ws;
+        const connect = async () => {
+            resetState();
+            updateConnectionStatus('connecting', 'Generando claves...');
+            state.rsaKeyPair = await cryptoUtils.generateRsaKeyPair();
+            updateConnectionStatus('connecting', 'Conectando...');
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            ws = new WebSocket(`${protocol}//localhost:18080/ws`);
+
+            ws.onopen = () => { updateConnectionStatus('connecting', 'Registrando...'); };
+            ws.onclose = () => {
+                updateConnectionStatus('offline', 'Desconectado');
+                dom.messageInput.disabled = true;
+                dom.sendButton.disabled = true;
+                dom.myAvatarContainer.innerHTML = "";
+                dom.myUsernameText.textContent = "Desconectado";
+                state.chatStore.forEach(chat => { if (chat.type === "private") chat.status = "offline"; });
+                updateUI();
+            };
+
+            ws.onmessage = async (event) => {
+                const msg = JSON.parse(event.data);
+                const getSenderData = (senderUsername) => state.chatStore.get(senderUsername);
+
+                const addMessageToChat = (chatName, messageData) => { const chat = state.chatStore.get(chatName); if (chat) { chat.messages.push(messageData); if (state.activeChat !== chatName) { chat.unread++; const toastTitle = chatName === 'Sala General' ? `#Sala General de ${messageData.sender}` : `@${messageData.sender}`; showToast(toastTitle, messageData.content, chatName, messageData.timestamp); } else { playSound('receive'); } } };
+                const processDecryptedMessage = async (encryptedMsg, privateKey, encryptedKeyOverride = null) => { const decryptedContent = await decryptMessage(encryptedMsg, privateKey, encryptedKeyOverride); const senderData = getSenderData(encryptedMsg.sender); return { sender: encryptedMsg.sender, content: decryptedContent, avatarUrl: senderData.avatarUrl, timestamp: new Date() }; };
+
+                switch (msg.type) {
+                    case "request_key": const pemPublicKey = await cryptoUtils.exportPublicKeyAsPem(state.rsaKeyPair.publicKey); ws.send(JSON.stringify({ type: "register_key", publicKey: pemPublicKey })); break;
+                    case "welcome":
+                        state.myUsername = msg.username;
+                        const myAvatarUrl = getAvatarUrl(msg.username);
+                        dom.myUsernameText.textContent = `Hola, ${state.myUsername}`;
+                        dom.myAvatarContainer.innerHTML = `<img src="${myAvatarUrl}" class="welcome-avatar rounded-full bg-gray-700" alt="Mi avatar"/>`;
+                        updateConnectionStatus('online', 'En línea');
+                        state.chatStore.set(state.myUsername, { type: "private", username: state.myUsername, status: "online", rsaPublicKey: state.rsaKeyPair.publicKey, avatarUrl: myAvatarUrl });
+                        switchChat("Sala General");
+                        break;
+                    case "user_list": for (const user of msg.users) { if (user.username === state.myUsername) continue; const importedKey = await cryptoUtils.importPublicKeyFromPem(user.publicKey); state.chatStore.set(user.username, { ...user, type: "private", rsaPublicKey: importedKey, messages: [], unread: 0, typingUsers: new Set(), draft: "", avatarUrl: getAvatarUrl(user.username) }); } updateUI(); break;
+                    case "user_status":
+                        if (msg.username === state.myUsername) break;
+                        const generalChat = state.chatStore.get("Sala General");
+                        if (msg.status === "online") {
+                            const importedKey = await cryptoUtils.importPublicKeyFromPem(msg.publicKey);
+                            state.chatStore.set(msg.username, { ...msg, type: "private", rsaPublicKey: importedKey, messages: [], unread: 0, typingUsers: new Set(), draft: "", avatarUrl: getAvatarUrl(msg.username) });
+                            generalChat.messages.push({ type: 'status', content: `${msg.username} se ha unido.` });
+                        } else if (state.chatStore.has(msg.username)) {
+                            const userChat = state.chatStore.get(msg.username);
+                            if (userChat.messages && userChat.messages.length > 0) {
+                                userChat.status = "offline";
+                            } else {
+                                state.chatStore.delete(msg.username);
+                            }
+                            generalChat.messages.push({ type: 'status', content: `${msg.username} se ha desconectado.` });
+                        }
+                        updateUI();
+                        break;
+                    case "private_encrypted": try { const messageData = await processDecryptedMessage(msg, state.rsaKeyPair.privateKey); addMessageToChat(msg.sender, messageData); updateUI(); } catch (e) { console.error("Error de descifrado privado:", e); } break;
+                    case "public_encrypted": try { const encryptedKeyForMe = msg.keys[state.myUsername]; if (encryptedKeyForMe) { const messageData = await processDecryptedMessage(msg, state.rsaKeyPair.privateKey, encryptedKeyForMe); addMessageToChat("Sala General", messageData); updateUI(); }} catch (e) { console.error("Error de descifrado público:", e); } break;
+                    case "user_typing": case "user_stopped_typing": const targetChat = msg.recipient === "Sala General" ? state.chatStore.get("Sala General") : getSenderData(msg.recipient); if (targetChat) { (msg.type === "user_typing") ? targetChat.typingUsers.add(msg.sender) : targetChat.typingUsers.delete(msg.sender); if (state.activeChat === msg.recipient) updateTypingIndicator(); } break;
+                }
+            };
+        };
+
+        const decryptMessage = async (msg, privateKey, encryptedKeyOverride = null) => { const encryptedKey = cryptoUtils.base64ToArrayBuffer(encryptedKeyOverride || msg.key); const decryptedAesKey = await cryptoUtils.decryptAesKey(encryptedKey, privateKey); const iv = cryptoUtils.base64ToArrayBuffer(msg.iv); const encryptedPayload = cryptoUtils.base64ToArrayBuffer(msg.payload); return await cryptoUtils.decryptMessage(encryptedPayload, iv, decryptedAesKey); };
+        const sendTypingStatus = (isTyping) => { if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: isTyping ? 'start_typing' : 'stop_typing', recipient: state.activeChat })); state.isTyping = isTyping; } };
+        dom.generalChatRoom.addEventListener('click', () => switchChat('Sala General'));
+        dom.messageInput.addEventListener('keyup', (e) => { clearTimeout(state.typingTimeout); if (e.key !== "Enter") { if (!state.isTyping) sendTypingStatus(true); state.typingTimeout = setTimeout(() => sendTypingStatus(false), 2000); } });
+        dom.messageForm.addEventListener('submit', async (e) => { e.preventDefault(); clearTimeout(state.typingTimeout); if (state.isTyping) sendTypingStatus(false); const content = dom.messageInput.value.trim(); if (!content || !state.activeChat) return; const currentChat = state.chatStore.get(state.activeChat); const myData = state.chatStore.get(state.myUsername); currentChat.messages.push({ sender: state.myUsername, content: content, avatarUrl: myData.avatarUrl, timestamp: new Date() }); dom.messageInput.value = ""; currentChat.draft = ""; updateUI(); playSound('send'); try { if (currentChat.type === 'public') { const aesKey = await cryptoUtils.generateAesKey(); const { iv, payload } = await cryptoUtils.encryptMessage(content, aesKey); const keys = {}; const onlineUsers = Array.from(state.chatStore.values()).filter(u => u.status === 'online' && u.type === 'private'); for (const user of onlineUsers) { keys[user.username] = cryptoUtils.arrayBufferToBase64(await cryptoUtils.encryptAesKey(aesKey, user.rsaPublicKey)); } ws.send(JSON.stringify({ type: 'public_encrypted', iv: cryptoUtils.arrayBufferToBase64(iv), payload: cryptoUtils.arrayBufferToBase64(payload), keys })); } else { const recipient = currentChat; if (!recipient || recipient.status !== 'online') return; const aesKey = await cryptoUtils.generateAesKey(); const { iv, payload } = await cryptoUtils.encryptMessage(content, aesKey); const encryptedAesKey = await cryptoUtils.encryptAesKey(aesKey, recipient.rsaPublicKey); ws.send(JSON.stringify({ type: 'private_encrypted', recipient: state.activeChat, key: cryptoUtils.arrayBufferToBase64(encryptedAesKey), iv: cryptoUtils.arrayBufferToBase64(iv), payload: cryptoUtils.arrayBufferToBase64(payload) })); } } catch (err) { console.error("Error de cifrado:", err); } });
+
+        const updateConnectionStatus = (status, text) => {
+            dom.connectionStatus.textContent = text;
+            dom.connectionStatus.className = `status-pill ${status}`;
+
+            const powerBtn = dom.powerToggleBtn;
+            if (status === 'online') {
+                powerBtn.classList.remove('text-green-500', 'hover:bg-green-800');
+                powerBtn.classList.add('text-red-500', 'hover:bg-red-800');
+            } else {
+                powerBtn.classList.remove('text-red-500', 'hover:bg-red-800');
+                powerBtn.classList.add('text-green-500', 'hover:bg-green-800');
+            }
+        };
+
+        const updateSoundButton = () => {
+            dom.soundToggleBtn.innerHTML = state.isSoundMuted
+                ? '<i class="fa-solid fa-volume-xmark"></i>'
+                : '<i class="fa-solid fa-volume-high"></i>';
+        };
+        dom.soundToggleBtn.addEventListener('click', () => { state.isSoundMuted = !state.isSoundMuted; updateSoundButton(); });
+
+        dom.powerToggleBtn.addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            } else {
+                connect();
+            }
+        });
+
+        updateSoundButton();
+        if (Notification.permission === 'default') { dom.messageForm.addEventListener('submit', () => Notification.requestPermission(), { once: true }); }
+        connect();
+    });
+</script>
+</body>
+</html>
