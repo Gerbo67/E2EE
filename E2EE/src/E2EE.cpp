@@ -30,7 +30,7 @@ int main() {
     ([](const crow::request&, crow::response& res) {
         res.set_static_file_info("public/index.html");
         res.end();
-    });
+    }); 
 
     // Maneja las conexiones WebSocket
     CROW_ROUTE(app, "/ws")
