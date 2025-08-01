@@ -39,10 +39,14 @@
         }
         .message-group-content {
             display: flex; flex-direction: column; flex: 1;
+            min-width: 40%;
+            width: 100%;
             max-width: 80%;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
         @media (min-width: 768px) {
-            .message-group-content { max-width: 65%; }
+            .message-group-content { min-width: 30%; max-width: 65%; width: 100%; }
         }
         .message-group-avatar {
             width: 32px; height: 32px; border-radius: 50%;
@@ -60,7 +64,10 @@
         .message-bubble {
             padding: 0.625rem 1rem;
             border-radius: 0.75rem;
-            max-width: 100%; word-wrap: break-word;
+            max-width: 100%;
+            width: 100%;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
         .message-bubble.first-bubble-sent { border-top-right-radius: 0.25rem; }
         .message-bubble.first-bubble-received { border-top-left-radius: 0.25rem; }
